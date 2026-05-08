@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clickstream Redis Analytics</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main {
+            width: 70%;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .analytics {
+            width: 30%;
+            background: #1e1e2f;
+            color: white;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        .products {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .product {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .product:hover {
+            transform: scale(1.03);
+        }
+
+        .product img {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .stat-box {
+            background: #2d2d44;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+        }
+
+        .recent {
+            margin-top: 20px;
+        }
+
+        .recent-item {
+            padding: 8px;
+            background: #343454;
+            margin-bottom: 8px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main" id="mainContent">
+        <h1>Shopping Demo</h1>
+        <div class="products">
+            <div class="product" onclick="trackEvent('Clicked Laptop')">
+                <img src="https://via.placeholder.com/300x200" alt="">
+                <h3>Laptop Pro X</h3>
+                <p>$1200</p>
+            </div>
+
+            <div class="product" onclick="trackEvent('Clicked Smartphone')">
+                <img src="https://via.placeholder.com/300x200" alt="">
+                <h3>Smartphone Ultra</h3>
+                <p>$899</p>
+            </div>
+
+            <div class="product" onclick="trackEvent('Clicked Headphones')">
+                <img src="https://via.placeholder.com/300x200" alt="">
+                <h3>Wireless Headphones</h3>
+                <p>$199</p>
+            </div>
+
+            <div class="product" onclick="trackEvent('Clicked Smartwatch')">
+                <img src="https://via.placeholder.com/300x200" alt="">
+                <h3>Smart Watch</h3>
+                <p>$299</p>
+            </div>
+        </div>
+
+        <div style="height:1000px;"></div>
+    </div>
+
+    <div class="analytics">
+        <h1>Analytics Dashboard</h1>
+
+        <div class="stat-box">
+            <h3>Total Clicks</h3>
+            <p id="clickCount">0</p>
+        </div>
+
+        <div class="stat-box">
+            <h3>Total Scrolls</h3>
+            <p id="scrollCount">0</p>
+        </div>
+
+        <div class="stat-box">
+            <h3>Last Action</h3>
+            <p id="lastAction">None</p>
+        </div>
+
+        <div class="recent">
+            <h3>Recent Actions</h3>
+            <div id="recentActions"></div>
+        </div>
+    </div>
+
+<script>
+let clickCount = 0;
+let scrollCount = 0;
+let recentActions = [];
+let lastScrollY = 0;
+
+function trackEvent(action) {
+    if (action.includes("Clicked")) clickCount++;
+    if (action === "Scrolled") scrollCount++;
+
+    document.getElementById("clickCount").innerText = clickCount;
+    document.getElementById("scrollCount").innerText = scrollCount;
+    document.getElementById("lastAction").innerText = action;
+
+    recentActions.unshift(action);
+    if (recentActions.length > 5) recentActions.pop();
+
+    renderRecent();
+
+    // --- THÊM ĐOẠN NÀY ĐỂ GỬI DỮ LIỆU VỀ SERVER ---
+    fetch('/track', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            event_type: action.includes("Clicked") ? "click" : "scroll",
+            action: action,
+            timestamp: new Date().toISOString()
+        })
+    })
+    .then(response => response.json())
+    .then(data => console.log('Đã lưu vào Redis:', data))
+    .catch(error => console.error('Lỗi:', error));
+}
+
+function renderRecent() {
+    const container = document.getElementById("recentActions");
+    container.innerHTML = "";
+
+    recentActions.forEach(action => {
+        container.innerHTML += `<div class="recent-item">${action}</div>`;
+    });
+}
+
+document.getElementById("mainContent").addEventListener("scroll", function() {
+    let currentY = this.scrollTop;
+
+    if (Math.abs(currentY - lastScrollY) > 200) {
+        trackEvent("Scrolled");
+        lastScrollY = currentY;
+    }
+});
+
+setInterval(() => {
+    document.getElementById("clickCount").innerText = clickCount;
+    document.getElementById("scrollCount").innerText = scrollCount;
+}, 1000);
+</script>
+
+</body>
+</html>
